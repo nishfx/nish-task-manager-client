@@ -26,7 +26,15 @@ export const login = (username: string, password: string) =>
 export const register = (username: string, password: string) =>
   api.post('/auth/register', { username, password });
 
-export const getProjects = () => api.get('/projects');
+export const getProjects = async () => {
+  try {
+    const response = await api.get('/projects');
+    return response;
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    throw error;
+  }
+};
 
 export const createProject = (name: string) => api.post('/projects', { name });
 

@@ -13,6 +13,8 @@ import { TaskItem } from '@/components/TaskItem';
 import { TrashIcon } from '@heroicons/react/24/outline';
 
 function Dashboard() {
+  console.log('Dashboard component rendered'); // Log to confirm component is rendered
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
@@ -22,6 +24,7 @@ function Dashboard() {
   const router = useRouter();
 
   useEffect(() => {
+    console.log('useEffect called'); // Log to confirm useEffect is executed
     fetchProjects();
   }, []);
 
@@ -32,13 +35,24 @@ function Dashboard() {
   }, [selectedProject]);
 
   const fetchProjects = async () => {
+    console.log('fetchProjects called');
     try {
       const response = await getProjects();
-      setProjects(response.data);
-      if (response.data.length > 0) {
-        setSelectedProject(response.data[0].id);
+      console.log('Fetched projects response:', response);
+  
+      const projects = response.data.map((project: any) => ({
+        id: project._id, // Use _id from MongoDB
+        name: project.name,
+      }));
+  
+      console.log('Mapped projects:', projects);
+  
+      setProjects(projects);
+      if (projects.length > 0) {
+        setSelectedProject(projects[0].id);
       }
     } catch (err: any) {
+      console.log('Error fetching projects:', err);
       setError('Failed to fetch projects');
       if (err.response && err.response.status === 401) {
         router.push('/login');
@@ -60,28 +74,40 @@ function Dashboard() {
     }
   };
 
-  const handleProjectSelect = (projectId: string) => {
-    setSelectedProject(projectId);
-    fetchTasks();
-  };
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     router.push('/login');
   };
 
-  const handleProjectCreated = async (projectName: string) => {
+  const handleProjectSelect = (projectId: string) => {
+    console.log('Selecting project:', projectId);
+    setSelectedProject(projectId);
+    fetchTasks();
+  };
+  
+  const handleProjectCreated = async (newProject: Project) => {
+    console.log('New project created:', newProject);
     try {
-      const response = await createProject(projectName);
-      const newProject = response.data;
       setProjects(prevProjects => [...prevProjects, newProject]);
-      setSelectedProject(newProject.id);
+      setSelectedProject(newProject._id); // Using _id from MongoDB
+      await fetchTasks(); // Fetch tasks for the newly created project
     } catch (err) {
-      setError('Failed to create project');
+      console.error('Error handling new project:', err);
+      setError('Failed to handle new project');
     }
   };
 
+  const handleDeleteConfirm = (projectId: string) => {
+    console.log('Delete confirmation triggered for project:', projectId);
+    if (projectId) {
+      setShowDeleteConfirm(projectId);
+    } else {
+      console.error('Project ID is undefined');
+    }
+  };
+  
   const handleDeleteProject = useCallback(async (projectId: string) => {
+    console.log('Attempting to delete project:', projectId);
     if (!projectId) {
       console.error('Project ID is undefined');
       setError('Failed to delete project: Invalid project ID');
@@ -89,7 +115,7 @@ function Dashboard() {
     }
     try {
       await deleteProject(projectId);
-      setProjects(prevProjects => prevProjects.filter(p => p.id !== projectId));
+      setProjects(prevProjects => prevProjects.filter(p => p._id !== projectId));
       if (selectedProject === projectId) {
         setSelectedProject(null);
         setTasks([]);
@@ -157,26 +183,29 @@ function Dashboard() {
             <h2 className="text-xl font-bold mb-4 text-gray-800">Projects</h2>
             <NewProjectForm onProjectCreated={handleProjectCreated} />
             <ul>
-              {projects.map((project) => (
-                <li key={project.id} className="flex items-center mb-2">
-                  <button
-                    className={`flex-grow cursor-pointer p-2 rounded ${
-                      selectedProject === project.id 
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                    }`}
-                    onClick={() => handleProjectSelect(project.id)}
-                  >
-                    {project.name}
-                  </button>
-                  <button
-                    className="ml-2 p-2 text-red-500 hover:text-red-700"
-                    onClick={() => setShowDeleteConfirm(project.id)}
-                  >
-                    <TrashIcon className="h-5 w-5" />
-                  </button>
-                </li>
-              ))}
+              {projects.map((project) => {
+                console.log('Rendering project:', project);
+                return (
+                  <li key={project._id} className="flex items-center mb-2">
+                    <button
+                      className={`flex-grow cursor-pointer p-2 rounded ${
+                        selectedProject === project._id 
+                          ? 'bg-blue-500 text-white' 
+                          : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                      }`}
+                      onClick={() => handleProjectSelect(project._id)}
+                    >
+                      {project.name}
+                    </button>
+                    <button
+                      className="ml-2 p-2 text-red-500 hover:text-red-700"
+                      onClick={() => handleDeleteConfirm(project._id)}
+                    >
+                      <TrashIcon className="h-5 w-5" />
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </div>
           <div className="w-full md:w-3/4 md:pl-8">
@@ -211,7 +240,7 @@ function Dashboard() {
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
           <div className="bg-white p-5 rounded-lg">
-            <p className="text-gray-800">Are you sure you want to delete project {projects.find(p => p.id === showDeleteConfirm)?.name}?</p>
+            <p className="text-gray-800">Are you sure you want to delete project {projects.find(p => p._id === showDeleteConfirm)?.name}?</p>
             <div className="mt-4 flex justify-end">
               <button
                 className="mr-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
