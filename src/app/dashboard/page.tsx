@@ -11,6 +11,7 @@ import { NewProjectForm } from '@/components/NewProjectForm';
 import { NewTaskForm } from '@/components/NewTaskForm';
 import { TaskItem } from '@/components/TaskItem';
 import { TrashIcon } from '@heroicons/react/24/outline';
+import { v4 as uuidv4 } from 'uuid';
 
 function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -116,9 +117,12 @@ function Dashboard() {
     router.push('/login');
   };
 
-  const handleTaskCreated = (newTask: Task) => {
-    setTasks(prevTasks => [...prevTasks, newTask]);
-  };
+  const handleTaskCreated = useCallback((newTask: Task) => {
+    setTasks(prevTasks => [
+      ...prevTasks,
+      { ...newTask, id: newTask.id || uuidv4() }  // Use server-provided ID or generate a temporary one
+    ]);
+  }, []);
 
   if (error) {
     return <div className="text-red-500">{error}</div>;
@@ -172,29 +176,26 @@ function Dashboard() {
             <h2 className="text-xl font-bold mb-4 text-gray-800">Projects</h2>
             <NewProjectForm onProjectCreated={handleProjectCreated} />
             <ul>
-              {projects.map((project) => {
-                console.log('Rendering project:', project);
-                return (
-                  <li key={project.id} className="flex items-center mb-2">
-                    <button
-                      className={`flex-grow cursor-pointer p-2 rounded ${
-                        selectedProject === project.id 
-                          ? 'bg-blue-500 text-white' 
-                          : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                      }`}
-                      onClick={() => handleProjectSelect(project.id)}
-                    >
-                      {project.name}
-                    </button>
-                    <button
-                      className="ml-2 p-2 text-red-500 hover:text-red-700"
-                      onClick={() => handleDeleteConfirm(project.id)}
-                    >
-                      <TrashIcon className="h-5 w-5" />
-                    </button>
-                  </li>
-                );
-              })}
+              {projects.map((project) => (
+                <li key={project.id} className="flex items-center mb-2">
+                  <button
+                    className={`flex-grow cursor-pointer p-2 rounded ${
+                      selectedProject === project.id 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                    }`}
+                    onClick={() => handleProjectSelect(project.id)}
+                  >
+                    {project.name}
+                  </button>
+                  <button
+                    className="ml-2 p-2 text-red-500 hover:text-red-700"
+                    onClick={() => handleDeleteConfirm(project.id)}
+                  >
+                    <TrashIcon className="h-5 w-5" />
+                  </button>
+                </li>
+              ))}
             </ul>
           </div>
           <div className="w-full md:w-3/4 md:pl-8">
@@ -207,15 +208,18 @@ function Dashboard() {
             ) : selectedProject ? (
               tasks.length > 0 ? (
                 <ul>
-                  {tasks.map((task) => (
-                    <TaskItem
-                      key={task.id}
-                      task={task}
-                      onTaskUpdated={(updatedTask) => {
-                        setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
-                      }}
-                    />
-                  ))}
+                  {tasks.map((task) => {
+                    console.log('Rendering task:', task);  // Add this line
+                    return (
+                      <TaskItem
+                        key={task.id || uuidv4()}
+                        task={task}
+                        onTaskUpdated={(updatedTask) => {
+                          setTasks(prevTasks => prevTasks.map(t => t.id === updatedTask.id ? updatedTask : t));
+                        }}
+                      />
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="text-gray-800">No tasks yet. Add a new task above.</p>

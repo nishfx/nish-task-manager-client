@@ -12,6 +12,7 @@ const api = axios.create({
   },
 });
 
+// Ensure the auth token is set for each request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -19,6 +20,9 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+export const createTask = (task: Omit<Task, 'id' | 'user' | 'createdAt' | 'updatedAt'>) =>
+  api.post('/tasks', task);
 
 export const login = (username: string, password: string) =>
   api.post('/auth/login', { username, password });
@@ -39,9 +43,6 @@ export const getProjects = async () => {
 export const createProject = (name: string) => api.post('/projects', { name });
 
 export const getTasks = (projectId: string) => api.get(`/tasks/project/${projectId}`);
-
-export const createTask = (task: Omit<Task, 'id' | 'user' | 'createdAt' | 'updatedAt'>) =>
-  api.post('/tasks', task);
 
 export const updateTask = (taskId: string, updatedTask: Partial<Task>) =>
   api.put(`/tasks/${taskId}`, updatedTask);
