@@ -13,8 +13,7 @@ export function NewProjectForm({ onProjectCreated }: NewProjectFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await createProject(projectName);
-      onProjectCreated(response.data);
+      await onProjectCreated(projectName);
       setProjectName('');
     } catch (error) {
       console.error('Failed to create project:', error);

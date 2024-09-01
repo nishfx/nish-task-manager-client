@@ -14,14 +14,15 @@ export function NewTaskForm({ projectId, onTaskCreated }: NewTaskFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await createTask({
+      const newTask = {
         title: taskTitle,
         description: '',
-        status: 'To Do',
-        priority: 'Medium',
+        status: 'To Do' as const,
+        priority: 'Medium' as const,
         project: projectId,
         subtasks: [], // Add this line
-      });
+      };
+      const response = await createTask(newTask);
       onTaskCreated(response.data);
       setTaskTitle('');
     } catch (error) {

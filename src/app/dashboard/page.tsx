@@ -2,14 +2,15 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getProjects, getTasks, createProject, createTask } from '@/utils/api';
+import { getProjects, getTasks, createProject, createTask, deleteProject } from '@/utils/api';
 import { Project, Task } from '@/types';
 import { withAuth } from '@/components/withAuth';
 import { NewProjectForm } from '@/components/NewProjectForm';
 import { NewTaskForm } from '@/components/NewTaskForm';
 import { TaskItem } from '@/components/TaskItem';
+import { TrashIcon } from '@heroicons/react/24/outline';
 
 function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -17,6 +18,7 @@ function Dashboard() {
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -60,6 +62,7 @@ function Dashboard() {
 
   const handleProjectSelect = (projectId: string) => {
     setSelectedProject(projectId);
+    fetchTasks();
   };
 
   const handleLogout = () => {
@@ -71,21 +74,29 @@ function Dashboard() {
     try {
       const response = await createProject(projectName);
       const newProject = response.data;
-      setProjects([...projects, newProject]);
+      setProjects(prevProjects => [...prevProjects, newProject]);
       setSelectedProject(newProject.id);
     } catch (err) {
       setError('Failed to create project');
     }
   };
 
-  const handleTaskCreated = async (taskData: Omit<Task, 'id' | 'user' | 'createdAt' | 'updatedAt'>) => {
+  const handleDeleteProject = async (projectId: string) => {
     try {
-      const response = await createTask(taskData);
-      const newTask = response.data;
-      setTasks([...tasks, newTask]);
-    } catch (err) {
-      setError('Failed to create task');
+      await deleteProject(projectId);
+      setProjects(projects.filter(p => p.id !== projectId));
+      if (selectedProject === projectId) {
+        setSelectedProject(null);
+        setTasks([]);
+      }
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      setError('Failed to delete project');
     }
+  };
+
+  const handleTaskCreated = (newTask: Task) => {
+    setTasks(prevTasks => [...prevTasks, newTask]);
   };
 
   if (error) {
@@ -141,16 +152,44 @@ function Dashboard() {
             <NewProjectForm onProjectCreated={handleProjectCreated} />
             <ul>
               {projects.map((project) => (
-                <li
-                  key={project.id}
-                  className={`cursor-pointer p-2 mb-2 rounded ${
-                    selectedProject === project.id 
-                      ? 'bg-blue-500 text-white' 
-                      : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                  }`}
-                  onClick={() => handleProjectSelect(project.id)}
-                >
-                  {project.name}
+                <li key={project.id} className="flex items-center mb-2">
+                  <button
+                    className={`flex-grow cursor-pointer p-2 rounded ${
+                      selectedProject === project.id 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                    }`}
+                    onClick={() => handleProjectSelect(project.id)}
+                  >
+                    {project.name}
+                  </button>
+                  <button
+                    className="ml-2 p-2 text-red-500 hover:text-red-700"
+                    onClick={() => setShowDeleteConfirm(project.id)}
+                  >
+                    <TrashIcon className="h-5 w-5" />
+                  </button>
+                  {showDeleteConfirm === project.id && (
+                    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
+                      <div className="bg-white p-5 rounded-lg">
+                        <p>Are you sure you want to delete project {project.name}?</p>
+                        <div className="mt-4 flex justify-end">
+                          <button
+                            className="mr-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                            onClick={() => handleDeleteProject(project.id)}
+                          >
+                            Yes
+                          </button>
+                          <button
+                            className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                            onClick={() => setShowDeleteConfirm(null)}
+                          >
+                            No
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
@@ -162,18 +201,24 @@ function Dashboard() {
             )}
             {loading ? (
               <p className="text-gray-800">Loading tasks...</p>
+            ) : selectedProject ? (
+              tasks.length > 0 ? (
+                <ul>
+                  {tasks.map((task) => (
+                    <TaskItem
+                      key={task.id}
+                      task={task}
+                      onTaskUpdated={(updatedTask) => {
+                        setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
+                      }}
+                    />
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-800">No tasks yet. Add a new task above.</p>
+              )
             ) : (
-              <ul>
-                {tasks.map((task) => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onTaskUpdated={(updatedTask) => {
-                      setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
-                    }}
-                  />
-                ))}
-              </ul>
+              <p className="text-gray-800">Select a project to view tasks.</p>
             )}
           </div>
         </div>

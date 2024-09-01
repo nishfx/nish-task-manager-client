@@ -40,5 +40,7 @@ export const updateTask = (taskId: string, updatedTask: Partial<Task>) =>
 
 export const deleteTask = (taskId: string) => api.delete(`/tasks/${taskId}`);
 
+export const deleteProject = (projectId: string) => api.delete(`/projects/${projectId}`);
+
 
 export default api;
