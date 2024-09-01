@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { getProjects, getTasks, createProject, createTask, deleteProject } from '@/utils/api';
 import { Project, Task } from '@/types';
@@ -81,19 +81,25 @@ function Dashboard() {
     }
   };
 
-  const handleDeleteProject = async (projectId: string) => {
+  const handleDeleteProject = useCallback(async (projectId: string) => {
+    if (!projectId) {
+      console.error('Project ID is undefined');
+      setError('Failed to delete project: Invalid project ID');
+      return;
+    }
     try {
       await deleteProject(projectId);
-      setProjects(projects.filter(p => p.id !== projectId));
+      setProjects(prevProjects => prevProjects.filter(p => p.id !== projectId));
       if (selectedProject === projectId) {
         setSelectedProject(null);
         setTasks([]);
       }
+      setShowDeleteConfirm(null);
     } catch (error) {
       console.error('Failed to delete project:', error);
       setError('Failed to delete project');
     }
-  };
+  }, [selectedProject]);
 
   const handleTaskCreated = (newTask: Task) => {
     setTasks(prevTasks => [...prevTasks, newTask]);
@@ -169,27 +175,6 @@ function Dashboard() {
                   >
                     <TrashIcon className="h-5 w-5" />
                   </button>
-                  {showDeleteConfirm === project.id && (
-                    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
-                      <div className="bg-white p-5 rounded-lg">
-                        <p>Are you sure you want to delete project {project.name}?</p>
-                        <div className="mt-4 flex justify-end">
-                          <button
-                            className="mr-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-                            onClick={() => handleDeleteProject(project.id)}
-                          >
-                            Yes
-                          </button>
-                          <button
-                            className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-                            onClick={() => setShowDeleteConfirm(null)}
-                          >
-                            No
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </li>
               ))}
             </ul>
@@ -223,6 +208,27 @@ function Dashboard() {
           </div>
         </div>
       </div>
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
+          <div className="bg-white p-5 rounded-lg">
+            <p className="text-gray-800">Are you sure you want to delete project {projects.find(p => p.id === showDeleteConfirm)?.name}?</p>
+            <div className="mt-4 flex justify-end">
+              <button
+                className="mr-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                onClick={() => handleDeleteProject(showDeleteConfirm)}
+              >
+                Yes
+              </button>
+              <button
+                className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
+                onClick={() => setShowDeleteConfirm(null)}
+              >
+                No
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

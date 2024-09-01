@@ -40,7 +40,19 @@ export const updateTask = (taskId: string, updatedTask: Partial<Task>) =>
 
 export const deleteTask = (taskId: string) => api.delete(`/tasks/${taskId}`);
 
-export const deleteProject = (projectId: string) => api.delete(`/projects/${projectId}`);
-
+export const deleteProject = async (projectId: string) => {
+  if (!projectId) {
+    console.error('Attempting to delete project with undefined ID');
+    throw new Error('Invalid project ID');
+  }
+  try {
+    console.log('Deleting project with ID:', projectId);
+    const response = await api.delete(`/projects/${projectId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting project:', error);
+    throw error;
+  }
+};
 
 export default api;
