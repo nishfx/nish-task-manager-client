@@ -35,8 +35,8 @@ export const getTasks = (projectId: string) => api.get(`/tasks/project/${project
 export const createTask = (task: Omit<Task, 'id' | 'user' | 'createdAt' | 'updatedAt'>) =>
   api.post('/tasks', task);
 
-export const updateTask = (taskId: string, task: Partial<Task>) =>
-  api.put(`/tasks/${taskId}`, task);
+export const updateTask = (taskId: string, updatedTask: Partial<Task>) =>
+  api.put(`/tasks/${taskId}`, updatedTask);
 
 export const deleteTask = (taskId: string) => api.delete(`/tasks/${taskId}`);
 

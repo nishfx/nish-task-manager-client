@@ -9,6 +9,7 @@ import { Project, Task } from '@/types';
 import { withAuth } from '@/components/withAuth';
 import { NewProjectForm } from '@/components/NewProjectForm';
 import { NewTaskForm } from '@/components/NewTaskForm';
+import { TaskItem } from '@/components/TaskItem';
 
 function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -164,22 +165,13 @@ function Dashboard() {
             ) : (
               <ul>
                 {tasks.map((task) => (
-                  <li key={task.id} className="bg-white p-4 mb-4 rounded shadow">
-                    <h3 className="font-bold text-gray-800">{task.title}</h3>
-                    <p className="text-gray-600">{task.description}</p>
-                    <div className="mt-2">
-                      <span className={`px-2 py-1 rounded text-sm ${
-                        task.status === 'To Do' ? 'bg-red-200 text-red-800' :
-                        task.status === 'In Progress' ? 'bg-yellow-200 text-yellow-800' :
-                        'bg-green-200 text-green-800'
-                      }`}>
-                        {task.status}
-                      </span>
-                      <span className="ml-2 text-sm text-gray-600">
-                        Priority: {task.priority}
-                      </span>
-                    </div>
-                  </li>
+                  <TaskItem
+                    key={task.id}
+                    task={task}
+                    onTaskUpdated={(updatedTask) => {
+                      setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
+                    }}
+                  />
                 ))}
               </ul>
             )}
