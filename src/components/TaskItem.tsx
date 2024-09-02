@@ -1,7 +1,8 @@
 // src/components/TaskItem.tsx (client side)
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
+import { getEmptyImage } from 'react-dnd-html5-backend';
 import { Task } from '@/types';
 import { updateTask } from '@/utils/api';
 import { WrenchIcon } from '@heroicons/react/24/outline';
@@ -14,26 +15,23 @@ interface TaskItemProps {
   onTaskUpdated: (updatedTask: Task) => void;
 }
 
-interface DragItem {
-  index: number;
-  id: string;
-  type: string;
-}
-
 export function TaskItem({ task, index, moveTask, onTaskUpdated }: TaskItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTask, setEditedTask] = useState(task);
-
   const ref = useRef<HTMLDivElement>(null);
 
-  const [{ handlerId }, drop] = useDrop<DragItem, void, { handlerId: string | symbol | null }>({
+  const [{ handlerId }, drop] = useDrop<
+    { id: string; index: number; projectId: string },
+    void,
+    { handlerId: string | symbol | null }
+  >({
     accept: 'TASK',
     collect(monitor) {
       return {
         handlerId: monitor.getHandlerId(),
       };
     },
-    hover(item: DragItem, monitor) {
+    hover(item: { id: string; index: number; projectId: string }, monitor) {
       if (!ref.current) {
         return;
       }
@@ -61,18 +59,22 @@ export function TaskItem({ task, index, moveTask, onTaskUpdated }: TaskItemProps
     },
   });
 
-  const [{ isDragging }, drag] = useDrag({
+  const [{ isDragging }, drag, preview] = useDrag({
     type: 'TASK',
     item: () => {
-      return { id: task.id, index };
+      console.log('Dragging task:', task._id);
+      return { id: task._id, index, projectId: task.project };
     },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
   });
 
-  const opacity = isDragging ? 0.4 : 1;
-  drag(drop(ref));
+  useEffect(() => {
+    preview(getEmptyImage(), { captureDraggingState: true });
+  }, [preview]);
+
+  drag(ref);
 
   const handleEdit = useCallback(() => setIsEditing(true), []);
 
@@ -83,15 +85,15 @@ export function TaskItem({ task, index, moveTask, onTaskUpdated }: TaskItemProps
 
   const handleSave = useCallback(async () => {
     try {
-      const response = await updateTask(task.id, editedTask);
-      onTaskUpdated(response.data); // Access the data property
+      const { data: updatedTask } = await updateTask(task._id, editedTask);
+      onTaskUpdated(updatedTask);
       setIsEditing(false);
       toast.success('Task updated successfully');
     } catch (error) {
       console.error('Failed to update task:', error);
       toast.error('Failed to update task. Please try again.');
     }
-  }, [editedTask, onTaskUpdated, task.id]);
+  }, [editedTask, onTaskUpdated, task._id]);
 
   const getPriorityColor = useCallback((priority: Task['priority']) => {
     switch (priority) {
@@ -134,7 +136,12 @@ export function TaskItem({ task, index, moveTask, onTaskUpdated }: TaskItemProps
   }
 
   return (
-    <div ref={ref} style={{ opacity }} className="bg-white p-4 mb-4 rounded shadow flex" data-handler-id={handlerId}>
+    <div
+      ref={ref}
+      style={{ opacity: isDragging ? 0.5 : 1 }}
+      className="bg-white p-4 mb-4 rounded shadow flex cursor-move"
+      data-handler-id={handlerId}
+    >
       <div className="flex-grow">
         <h3 className="font-bold text-gray-800">{task.title}</h3>
         {task.description && <p className="text-gray-600 mt-2">{task.description}</p>}

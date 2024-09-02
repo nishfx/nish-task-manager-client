@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { createTask } from '@/utils/api';
 import { Task } from '@/types';
+import { CreateTaskDto } from '@/types';
 
 interface NewTaskFormProps {
   projectId: string;
@@ -16,18 +17,19 @@ export function NewTaskForm({ projectId, onTaskCreated }: NewTaskFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Submitting new task form');
     setIsLoading(true);
     setMessage('');
     try {
-      const newTask = {
+      const newTask: CreateTaskDto = {
         title: taskTitle,
         description: '',
-        status: 'To Do' as const,
-        priority: 'Medium' as const,
+        priority: 'Medium',
         project: projectId,
-        subtasks: [], // Add this line
       };
+      console.log('Calling createTask with:', newTask);
       const response = await createTask(newTask);
+      console.log('Create task response received:', response.data);
       onTaskCreated(response.data);
       setTaskTitle('');
       setMessage('Task added successfully!');
@@ -38,7 +40,7 @@ export function NewTaskForm({ projectId, onTaskCreated }: NewTaskFormProps) {
       setIsLoading(false);
     }
   };
-
+  
   return (
     <form onSubmit={handleSubmit} className="mb-4">
       <input

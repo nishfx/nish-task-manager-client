@@ -12,21 +12,21 @@ export interface Project {
 }
 
 export interface Task {
-  id: string;
+  _id: string;  // Change this from 'id' to '_id'
   title: string;
   description?: string;
-  status: 'To Do' | 'In Progress' | 'Done';
   priority: 'Low' | 'Medium' | 'High';
-  dueDate?: string;
   project: string;
   user: string;
-  subtasks: Subtask[];
+  order?: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface Subtask {
-  id: string;
+// If you need a separate interface for creating tasks, you can define it like this:
+export interface CreateTaskDto {
   title: string;
-  completed: boolean;
+  description?: string;
+  priority: 'Low' | 'Medium' | 'High';
+  project: string;
 }

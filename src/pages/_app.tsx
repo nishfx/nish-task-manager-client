@@ -1,6 +1,6 @@
 // src/pages/_app.tsx (client side)
 
-import '@/styles/globals.css'
+import '../app/globals.css';
 import 'react-toastify/dist/ReactToastify.css';
 import type { AppProps } from 'next/app'
 import { DndProvider } from 'react-dnd'

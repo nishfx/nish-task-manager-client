@@ -2,9 +2,10 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { DndProvider } from 'react-dnd';
+import { DndProvider, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { getProjects, getTasks, createProject, deleteProject, updateTask, reorderTasks, moveTaskToProject } from '@/utils/api';
 import { Project, Task } from '@/types';
@@ -14,7 +15,49 @@ import { NewTaskForm } from '@/components/NewTaskForm';
 import { TaskItem } from '@/components/TaskItem';
 import { TrashIcon } from '@heroicons/react/24/outline';
 import { toast, ToastContainer } from 'react-toastify';
-import { v4 as uuidv4 } from 'uuid';
+import { CustomDragLayer } from '@/components/CustomDragLayer';
+
+interface ProjectButtonProps {
+  project: Project;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+  onDelete: (id: string) => void;
+  onDrop: (taskId: string, projectId: string) => void;
+}
+
+function ProjectButton({ project, isSelected, onSelect, onDelete, onDrop }: ProjectButtonProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [{ isOver }, drop] = useDrop<{ id: string; projectId: string }, void, { isOver: boolean }>({
+    accept: 'TASK',
+    drop: (item) => onDrop(item.id, project.id),
+    collect: (monitor) => ({
+      isOver: !!monitor.isOver(),
+    }),
+  });
+
+  drop(ref);
+
+  return (
+    <div ref={ref} className={`flex items-center mb-2 ${isOver ? 'border-2 border-green-500' : ''}`}>
+      <button
+        className={`flex-grow cursor-pointer p-2 rounded ${
+          isSelected 
+            ? 'bg-blue-500 text-white' 
+            : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+        }`}
+        onClick={() => onSelect(project.id)}
+      >
+        {project.name}
+      </button>
+      <button
+        className="ml-2 p-2 text-red-500 hover:text-red-700"
+        onClick={() => onDelete(project.id)}
+      >
+        <TrashIcon className="h-5 w-5" />
+      </button>
+    </div>
+  );
+}
 
 function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -56,6 +99,10 @@ function Dashboard() {
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
+
+  useEffect(() => {
+    console.log('Tasks state updated:', tasks);
+  }, [tasks]);
 
   const fetchTasks = useCallback(async () => {
     if (selectedProject) {
@@ -121,48 +168,62 @@ function Dashboard() {
   };
 
   const handleTaskCreated = useCallback((newTask: Task) => {
-    setTasks(prevTasks => [
-      ...prevTasks,
-      { ...newTask, id: newTask.id || uuidv4() }  // Use server-provided ID or generate a temporary one
-    ]);
+    console.log('handleTaskCreated called with:', newTask);
+    setTasks(prevTasks => {
+      console.log('Previous tasks:', prevTasks);
+      const updatedTasks = [...prevTasks, newTask];
+      console.log('Updated tasks:', updatedTasks);
+      return updatedTasks;
+    });
   }, []);
 
-  const handleDrop = useCallback(async (item: { id: string, projectId: string }, targetProjectId: string) => {
-    if (item.projectId !== targetProjectId) {
-      const originalTasks = [...tasks];
-      try {
-        // Optimistic update
-        setTasks(prevTasks => prevTasks.filter(task => task.id !== item.id));
-        const movedTask = await moveTaskToProject(item.id, targetProjectId);
-        if (selectedProject === targetProjectId) {
-          setTasks(prevTasks => [...prevTasks, movedTask]);
-        }
-        toast.success('Task moved successfully');
-      } catch (error) {
-        console.error('Failed to move task:', error);
-        setTasks(originalTasks);
-        toast.error('Failed to move task. Please try again.');
-      }
-    }
-  }, [tasks, selectedProject]);
-
   const moveTask = useCallback(async (dragIndex: number, hoverIndex: number) => {
+    if (!selectedProject) return;
+
     const newTasks = [...tasks];
     const [reorderedItem] = newTasks.splice(dragIndex, 1);
     newTasks.splice(hoverIndex, 0, reorderedItem);
     
-    // Optimistic update
-    setTasks(newTasks);
+    setTasks(newTasks); // Optimistic update
 
     try {
-      await reorderTasks(selectedProject!, newTasks.map(task => task.id));
+      const updatedTasks = await reorderTasks(selectedProject, newTasks.map(task => task._id));
+      setTasks(updatedTasks);
       toast.success('Tasks reordered successfully');
     } catch (error) {
       console.error('Failed to reorder tasks:', error);
-      setTasks(tasks);  // Revert to original order
+      setTasks(tasks); // Revert to original order
       toast.error('Failed to reorder tasks. Please try again.');
     }
   }, [tasks, selectedProject]);
+
+  const handleTaskDrop = useCallback(async (taskId: string, newProjectId: string) => {
+    console.log('Dropping task:', taskId, 'to project:', newProjectId);
+    if (!taskId || !newProjectId) {
+      console.error('Invalid taskId or newProjectId:', { taskId, newProjectId });
+      toast.error('Failed to move task: Invalid task or project');
+      return;
+    }
+    if (selectedProject === newProjectId) return;
+  
+    try {
+      const movedTask = await moveTaskToProject(taskId, newProjectId);
+      setTasks(prevTasks => prevTasks.filter(task => task._id !== taskId));
+  
+      // If the task was moved to the currently selected project, add it to the tasks list
+      if (selectedProject === newProjectId) {
+        setTasks(prevTasks => [...prevTasks, movedTask]);
+      }
+    } catch (error) {
+      console.error('Failed to move task:', error);
+      if (axios.isAxiosError(error) && error.response) {
+        const errorMessage = error.response.data.message || error.response.data.error || 'Unknown error occurred';
+        toast.error(`Failed to move task: ${errorMessage}`);
+      } else {
+        toast.error('Failed to move task. Please try again.');
+      }
+    }
+  }, [selectedProject]);
 
   return (
     <DndProvider backend={HTML5Backend}>
@@ -214,30 +275,14 @@ function Dashboard() {
               <NewProjectForm onProjectCreated={handleProjectCreated} />
               <ul>
                 {projects.map((project) => (
-                  <li key={project.id} className="flex items-center mb-2">
-                    <button
-                      className={`flex-grow cursor-pointer p-2 rounded ${
-                        selectedProject === project.id 
-                          ? 'bg-blue-500 text-white' 
-                          : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                      }`}
-                      onClick={() => handleProjectSelect(project.id)}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        const item = JSON.parse(e.dataTransfer.getData('application/json'));
-                        handleDrop(item, project.id);
-                      }}
-                      onDragOver={(e) => e.preventDefault()}
-                    >
-                      {project.name}
-                    </button>
-                    <button
-                      className="ml-2 p-2 text-red-500 hover:text-red-700"
-                      onClick={() => handleDeleteConfirm(project.id)}
-                    >
-                      <TrashIcon className="h-5 w-5" />
-                    </button>
-                  </li>
+                  <ProjectButton
+                    key={project.id}
+                    project={project}
+                    isSelected={selectedProject === project.id}
+                    onSelect={handleProjectSelect}
+                    onDelete={handleDeleteConfirm}
+                    onDrop={handleTaskDrop}
+                  />
                 ))}
               </ul>
             </div>
@@ -251,14 +296,14 @@ function Dashboard() {
               ) : selectedProject ? (
                 tasks.length > 0 ? (
                   <ul>
-                    {tasks.map((task, index) => (
+                    {tasks.map((task) => (
                       <TaskItem
-                        key={task.id || uuidv4()}
+                        key={task._id}  // Use _id instead of id
                         task={task}
-                        index={index}
+                        index={tasks.indexOf(task)}
                         moveTask={moveTask}
                         onTaskUpdated={(updatedTask) => {
-                          setTasks(prevTasks => prevTasks.map(t => t.id === updatedTask.id ? updatedTask : t));
+                          setTasks(prevTasks => prevTasks.map(t => t._id === updatedTask._id ? updatedTask : t));
                         }}
                       />
                     ))}
@@ -294,6 +339,7 @@ function Dashboard() {
           </div>
         )}
         <ToastContainer />
+        <CustomDragLayer />
       </div>
     </DndProvider>
   );

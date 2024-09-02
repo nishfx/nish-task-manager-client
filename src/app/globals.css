@@ -31,3 +31,7 @@ body {
     text-wrap: balance;
   }
 }
+
+.Toastify__toast svg {
+  display: none !important;
+}
